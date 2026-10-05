@@ -1,4 +1,4 @@
-# Data (downloaded at runtime, never committed)
+# Data
 data/
 
 # Secrets
@@ -24,6 +24,7 @@ dbt/logs/
 .DS_Store
 .idea/
 .vscode/
+.zed/
 
 # Local-only docs
 docs/assignment.md

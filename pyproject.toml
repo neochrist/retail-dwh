@@ -27,3 +27,9 @@ select = ["E", "F", "I", "B", "UP"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.pyright]
+typeCheckingMode = "standard"  # strict flags every untyped pandas call
+extraPaths = ["src"]
+venvPath = "."
+venv = ".venv"
