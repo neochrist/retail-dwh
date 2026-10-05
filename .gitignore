@@ -1,0 +1,29 @@
+# Data (downloaded at runtime, never committed)
+data/
+
+# Secrets
+.env
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Airflow
+logs/
+
+# dbt
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+
+# Local-only docs
+docs/assignment.md
