@@ -53,10 +53,20 @@ def retail_daily() -> None:
         return f"{DBT_BUILD} --select 'path:models/marts/core/*.sql'"
 
     @task.bash
+    def dbt_aggregates() -> str:
+        return f"{DBT_BUILD} --select 'path:models/marts/aggregates/*.sql'"
+
+    @task.bash
     def dbt_analytics() -> str:
         return f"{DBT_BUILD} --select 'path:models/marts/analytics/*.sql'"
 
-    chain(load_raw_sales(download_dataset()), dbt_staging(), dbt_core(), dbt_analytics())
+    chain(
+        load_raw_sales(download_dataset()),
+        dbt_staging(),
+        dbt_core(),
+        dbt_aggregates(),
+        dbt_analytics(),
+    )
 
 
 retail_daily()

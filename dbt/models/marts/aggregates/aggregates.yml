@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: agg_sales_daily
+    description: One row per sale_date x store x product, built from fact_sales only.
+    columns:
+      - name: sale_date
+        data_tests:
+          - not_null
+      - name: store_key
+        data_tests:
+          - not_null
+      - name: product_key
+        data_tests:
+          - not_null
+      - name: quantity_total
+        description: Units sold. Input for ABC by quantity.
+      - name: revenue_total
+        description: Sum of revenue. Input for ABC by amount.
+      - name: gross_amount_total
+        description: Sum of quantity * unit_price, before discount.
+      - name: discount_amount_total
+        description: Sum of discount amounts. Kept so discounts can be recomputed at any higher level.
+      - name: weighted_discount_pct
+        description: discount_amount_total / gross_amount_total * 100. Never an average of row percentages.
+      - name: transaction_count
+        description: Number of fact rows.
+      - name: unique_customers
+        description: Exact distinct customers. Not additive across days, stores or products.

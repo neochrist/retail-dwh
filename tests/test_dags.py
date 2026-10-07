@@ -26,7 +26,14 @@ def dag() -> DAG:
 
 
 def test_tasks_run_in_order(dag: DAG) -> None:
-    order = ["download_dataset", "load_raw_sales", "dbt_staging", "dbt_core", "dbt_analytics"]
+    order = [
+        "download_dataset",
+        "load_raw_sales",
+        "dbt_staging",
+        "dbt_core",
+        "dbt_aggregates",
+        "dbt_analytics",
+    ]
     assert set(dag.task_ids) == set(order)
     for upstream, downstream in pairwise(order):
         assert dag.get_task(upstream).downstream_task_ids == {downstream}
