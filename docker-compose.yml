@@ -15,11 +15,15 @@ x-airflow-common: &airflow-common
     CLICKHOUSE_PORT: 8123
     CLICKHOUSE_USER: ${CLICKHOUSE_USER}
     CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+    DBT_PROFILES_DIR: /opt/airflow/dbt
+    DBT_TARGET_PATH: /tmp/dbt/target
+    DBT_LOG_PATH: /tmp/dbt/logs
   volumes:
     - ./dags:/opt/airflow/dags
     - ./src:/opt/airflow/src
     - ./tests:/opt/airflow/tests
     - ./data:/opt/airflow/data
+    - ./dbt:/opt/airflow/dbt
     - airflow_logs:/opt/airflow/logs
 
 services:

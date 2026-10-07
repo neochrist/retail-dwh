@@ -24,8 +24,9 @@ def dag() -> DAG:
 
 
 def test_tasks_run_in_order(dag: DAG) -> None:
-    assert set(dag.task_ids) == {"download_dataset", "load_raw_sales"}
+    assert set(dag.task_ids) == {"download_dataset", "load_raw_sales", "dbt_staging"}
     assert dag.get_task("download_dataset").downstream_task_ids == {"load_raw_sales"}
+    assert dag.get_task("load_raw_sales").downstream_task_ids == {"dbt_staging"}
 
 
 def test_runs_daily_at_midnight_tbilisi(dag: DAG) -> None:

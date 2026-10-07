@@ -1,0 +1,73 @@
+version: 2
+
+models:
+  - name: stg_sales
+    description: One row per raw sales row, typed. Store = state code at the end of the address.
+    columns:
+      - name: transaction_id
+        description: cityHash64 of all source columns as text. Unique test also detects duplicate rows.
+        data_tests:
+          - unique
+          - not_null
+      - name: store_key
+        data_tests:
+          - not_null
+      - name: product_key
+        data_tests:
+          - not_null
+      - name: store_id
+        description: Two-letter code before the ZIP in store_location. Empty string if the pattern fails.
+        data_tests:
+          - not_null
+      - name: sold_at
+        description: Source timestamp read as Asia/Tbilisi local time.
+      - name: revenue
+        description: Source total_amount, not recomputed.
+      - name: discount_amount
+        description: gross_amount - revenue.
+      - name: payment_method
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["Cash", "Credit Card", "Debit Card", "PayPal"]
+
+unit_tests:
+  - name: stg_sales_parses_store_date_and_amounts
+    model: stg_sales
+    given:
+      - input: source('raw', 'raw_sales')
+        rows:
+          - customer_id: "1"
+            product_id: "A"
+            quantity: "2"
+            price: "10.5"
+            transaction_date: "8/5/2023 0:00"
+            payment_method: "Cash"
+            store_location: "176 Andrew Cliffs\nBaileyfort, HI 93354"
+            product_category: "Books"
+            discount_pct: "10"
+            total_amount: "18.9"
+          - customer_id: "2"
+            product_id: "B"
+            quantity: "1"
+            price: "20"
+            transaction_date: "12/31/2023 23:59"
+            payment_method: "PayPal"
+            store_location: "1 Main St Suite 9\nEast Kara, MT 19483"
+            product_category: "Clothing"
+            discount_pct: "0"
+            total_amount: "20"
+    expect:
+      rows:
+        - customer_id: "1"
+          store_id: "HI"
+          sale_date: "2023-08-05"
+          gross_amount: 21
+          discount_amount: 2.1
+          revenue: 18.9
+        - customer_id: "2"
+          store_id: "MT"
+          sale_date: "2023-12-31"
+          gross_amount: 20
+          discount_amount: 0
+          revenue: 20

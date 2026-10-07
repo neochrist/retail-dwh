@@ -1,14 +1,18 @@
 # pyright: reportMissingImports=false
 # (Airflow is installed only in the Docker image.)
-"""Daily retail pipeline: download the Kaggle CSV and full-refresh load it into ClickHouse."""
+"""Daily retail pipeline: download the Kaggle CSV, load it into ClickHouse, build the dbt models."""
 
 import os
 from pathlib import Path
 
 import pendulum
 from airflow.decorators import dag, task
+from airflow.models.baseoperator import chain
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/opt/airflow/data"))
+DBT_BUILD = (
+    "/opt/dbt-venv/bin/dbt build --project-dir /opt/airflow/dbt --indirect-selection cautious"
+)
 
 
 @dag(
@@ -35,7 +39,11 @@ def retail_daily() -> None:
 
         raw_sales.load_from_csv(Path(csv_path))
 
-    load_raw_sales(download_dataset())
+    @task.bash
+    def dbt_staging() -> str:
+        return f"{DBT_BUILD} --select path:models/staging"
+
+    chain(load_raw_sales(download_dataset()), dbt_staging())
 
 
 retail_daily()
