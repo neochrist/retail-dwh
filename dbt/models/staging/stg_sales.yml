@@ -2,7 +2,7 @@ version: 2
 
 models:
   - name: stg_sales
-    description: One row per raw sales row, typed. Store = state code at the end of the address.
+    description: One row per raw sales row, typed. A table, not a view, so every cast runs in dbt_staging. Store = state code at the end of the address.
     columns:
       - name: transaction_id
         description: cityHash64 of all source columns as text. Unique test also detects duplicate rows.
@@ -21,6 +21,10 @@ models:
           - not_null
       - name: sold_at
         description: Source timestamp read as Asia/Tbilisi local time.
+      - name: sale_date
+        description: Local calendar date of sold_at (Asia/Tbilisi).
+      - name: gross_amount
+        description: quantity * unit_price, before discount.
       - name: revenue
         description: Source total_amount, not recomputed.
       - name: discount_amount

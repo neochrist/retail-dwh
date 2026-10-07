@@ -1,0 +1,52 @@
+version: 2
+
+models:
+  - name: dim_store
+    description: One row per store. Name generated deterministically from store_key.
+    columns:
+      - name: store_key
+        description: cityHash64 of store_id.
+        data_tests:
+          - unique
+          - not_null
+      - name: store_id
+        data_tests:
+          - unique
+          - not_null
+      - name: store_name
+        data_tests:
+          - unique
+          - not_null
+
+  - name: fact_sales
+    description: One row per transaction. Keys come from staging, so the fact never reads the dimensions.
+    columns:
+      - name: transaction_id
+        description: cityHash64 of all source columns as text.
+        data_tests:
+          - unique
+          - not_null
+      - name: store_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_store')
+                field: store_key
+      - name: product_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_product')
+                field: product_key
+      - name: sale_date
+        description: Local calendar date of the sale (Asia/Tbilisi).
+      - name: gross_amount
+        description: quantity * unit_price, before discount.
+      - name: discount_amount
+        description: gross_amount - revenue.
+      - name: revenue
+        description: Source TotalAmount, as given.
+      - name: discount_pct
+        description: Discount in percent (0-100).

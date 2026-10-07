@@ -11,7 +11,7 @@ from airflow.models.baseoperator import chain
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/opt/airflow/data"))
 DBT_BUILD = (
-    "/opt/dbt-venv/bin/dbt build --project-dir /opt/airflow/dbt --indirect-selection cautious"
+    "/opt/dbt-venv/bin/dbt build --project-dir /opt/airflow/dbt --indirect-selection buildable"
 )
 
 
@@ -20,8 +20,13 @@ DBT_BUILD = (
     start_date=pendulum.datetime(2026, 10, 1, tz="Asia/Tbilisi"),
     catchup=False,
     max_active_runs=1,
-    default_args={"retries": 2, "retry_delay": pendulum.duration(minutes=5)},
+    default_args={
+        "retries": 2,
+        "retry_delay": pendulum.duration(minutes=5),
+        "execution_timeout": pendulum.duration(minutes=30),
+    },
     tags=["retail"],
+    doc_md=__doc__,
 )
 def retail_daily() -> None:
     # Our module is imported inside each task, not at the top: the scheduler re-parses this file
@@ -41,9 +46,17 @@ def retail_daily() -> None:
 
     @task.bash
     def dbt_staging() -> str:
-        return f"{DBT_BUILD} --select path:models/staging"
+        return f"{DBT_BUILD} --select 'path:models/staging/*.sql'"
 
-    chain(load_raw_sales(download_dataset()), dbt_staging())
+    @task.bash
+    def dbt_core() -> str:
+        return f"{DBT_BUILD} --select 'path:models/marts/core/*.sql'"
+
+    @task.bash
+    def dbt_analytics() -> str:
+        return f"{DBT_BUILD} --select 'path:models/marts/analytics/*.sql'"
+
+    chain(load_raw_sales(download_dataset()), dbt_staging(), dbt_core(), dbt_analytics())
 
 
 retail_daily()

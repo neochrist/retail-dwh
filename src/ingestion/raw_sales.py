@@ -66,10 +66,11 @@ def download_dataset(data_dir: Path) -> Path:
     api = KaggleApi()
     api.authenticate()
 
+    csv_path = data_dir / CSV_NAME
+    csv_path.unlink(missing_ok=True)
     logger.info("Downloading %s into %s", DATASET, data_dir)
     api.dataset_download_files(DATASET, path=data_dir, unzip=True, force=True)
 
-    csv_path = data_dir / CSV_NAME
     if not csv_path.exists():
         raise FileNotFoundError(f"Expected {csv_path} after download")
     logger.info("Downloaded %s (%d bytes)", csv_path, csv_path.stat().st_size)

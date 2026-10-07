@@ -1,0 +1,19 @@
+version: 2
+
+models:
+  - name: dim_product
+    description: One row per product. Name generated deterministically from product_key.
+    columns:
+      - name: product_key
+        description: cityHash64 of product_id.
+        data_tests:
+          - unique
+          - not_null
+      - name: product_id
+        data_tests:
+          - unique
+          - not_null
+      - name: product_name
+        data_tests:
+          - unique
+          - not_null

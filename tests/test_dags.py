@@ -5,6 +5,8 @@
 docker compose exec airflow-scheduler pytest tests/test_dags.py
 """
 
+from datetime import timedelta
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
@@ -20,13 +22,14 @@ DAGS_DIR = Path(__file__).parents[1] / "dags"
 def dag() -> DAG:
     dagbag = DagBag(dag_folder=str(DAGS_DIR), include_examples=False)
     assert dagbag.import_errors == {}
-    return dagbag.get_dag("retail_daily")
+    return dagbag.dags["retail_daily"]
 
 
 def test_tasks_run_in_order(dag: DAG) -> None:
-    assert set(dag.task_ids) == {"download_dataset", "load_raw_sales", "dbt_staging"}
-    assert dag.get_task("download_dataset").downstream_task_ids == {"load_raw_sales"}
-    assert dag.get_task("load_raw_sales").downstream_task_ids == {"dbt_staging"}
+    order = ["download_dataset", "load_raw_sales", "dbt_staging", "dbt_core", "dbt_analytics"]
+    assert set(dag.task_ids) == set(order)
+    for upstream, downstream in pairwise(order):
+        assert dag.get_task(upstream).downstream_task_ids == {downstream}
 
 
 def test_runs_daily_at_midnight_tbilisi(dag: DAG) -> None:
@@ -36,5 +39,8 @@ def test_runs_daily_at_midnight_tbilisi(dag: DAG) -> None:
     assert dag.max_active_runs == 1
 
 
-def test_tasks_retry(dag: DAG) -> None:
-    assert all(task.retries == 2 for task in dag.tasks)
+def test_tasks_retry_and_time_out(dag: DAG) -> None:
+    for task in dag.tasks:
+        assert task.retries == 2
+        assert task.retry_delay == timedelta(minutes=5)
+        assert task.execution_timeout == timedelta(minutes=30)

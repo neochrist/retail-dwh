@@ -17,6 +17,7 @@ USER airflow
 # Our pipeline's packages, installed against the versions Airflow is tested with.
 # Keep the pins in sync with pyproject.toml. pytest is only for the DAG integrity test.
 RUN pip install --no-cache-dir \
+        apache-airflow==2.10.5 \
         pandas==2.1.4 \
         clickhouse-connect==1.9.0 \
         kaggle==2.2.4 \

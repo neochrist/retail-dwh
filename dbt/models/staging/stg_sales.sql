@@ -1,3 +1,5 @@
+{{ config(order_by=['sale_date', 'store_key', 'product_key']) }}
+
 with source as (
     select
         cityHash64(tuple(

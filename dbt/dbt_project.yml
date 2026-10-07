@@ -5,9 +5,11 @@ profile: retail_dwh
 model-paths: ["models"]
 test-paths: ["tests"]
 
+flags:
+  send_anonymous_usage_stats: false
+  warn_error_options:
+    error: [NoNodesForSelectionCriteria]
+
 models:
   retail_dwh:
-    staging:
-      +materialized: view
-    marts:
-      +materialized: table
+    +materialized: table

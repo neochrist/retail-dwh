@@ -50,7 +50,7 @@ def test_validate_rejects_missing_column(tmp_path: Path) -> None:
         validate(df)
 
 
-def test_validate_rejects_empty_file(tmp_path: Path) -> None:
+def test_validate_rejects_header_only_file(tmp_path: Path) -> None:
     df = read_sales_csv(write_csv(tmp_path, HEADER + "\n"))
 
     with pytest.raises(ValueError, match="no rows"):
