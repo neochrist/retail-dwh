@@ -2,6 +2,7 @@
 x-airflow-common: &airflow-common
   build: docker/airflow
   image: retail-airflow:dev
+  pull_policy: build
   user: "${AIRFLOW_UID:-50000}:0"
   environment: &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
