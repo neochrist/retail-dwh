@@ -2,7 +2,9 @@ version: 2
 
 models:
   - name: dim_product
-    description: One row per product. Name generated deterministically from product_key.
+    description: >
+      One row per product, with a name generated deterministically from product_key and the ABC classes
+      from product_abc.
     columns:
       - name: product_key
         description: cityHash64 of product_id.
@@ -35,7 +37,7 @@ models:
   - name: product_abc
     description: >
       One row per product. ABC analysis from agg_sales_daily, separately by quantity and by amount (revenue).
-      Products are sorted by total descending, ties by product_id. Cumulative share <= 50 % is A, <= 70 % is B,
+      Products are sorted by total descending, ties by product_id. Cumulative share <= 50% is A, <= 70% is B,
       the rest is C. Classes use an exact comparison on the totals; the percentage columns are for reading only.
     columns:
       - name: product_key
@@ -46,6 +48,10 @@ models:
         data_tests:
           - unique
           - not_null
+      - name: total_quantity
+        description: Units sold over the whole data period.
+      - name: quantity_share_pct
+        description: total_quantity / sum of all products * 100.
       - name: quantity_cumulative_pct
         description: Running sum of quantity_share_pct in ranking order.
       - name: abc_quantity
@@ -54,6 +60,10 @@ models:
           - accepted_values:
               arguments:
                 values: [A, B, C]
+      - name: total_revenue
+        description: Revenue (net of discount) over the whole data period.
+      - name: revenue_share_pct
+        description: total_revenue / sum of all products * 100.
       - name: revenue_cumulative_pct
         description: Running sum of revenue_share_pct in ranking order.
       - name: abc_amount
@@ -95,6 +105,7 @@ unit_tests:
     description: >
       Data from 2023-01-01 to 2024-03-15, so the current year is 2024 and March needs 15 days this year.
       S1 sells every day, S2 misses 2024-02-10, S3 misses 2023-03-31, S4 has no sales.
+      S1 has two rows per day in January 2024 (two products), so days are counted, not rows.
     model: dim_store_lfl
     given:
       - input: ref('agg_sales_daily')
@@ -107,6 +118,11 @@ unit_tests:
           cross join (select arrayJoin([1, 2, 3]) as store_key) as s
           where not (s.store_key = 2 and sale_date = toDate('2024-02-10'))
               and not (s.store_key = 3 and sale_date = toDate('2023-03-31'))
+          union all
+          select
+              toDate('2024-01-01') + number as sale_date,
+              toUInt64(1) as store_key
+          from numbers(31)
       - input: ref('dim_store')
         rows:
           - {store_key: 1, store_id: S1, store_name: Store S1}
@@ -130,21 +146,23 @@ unit_tests:
 
   - name: product_abc_boundaries_and_ties
     description: >
-      Quantity: P1 is exactly 50 % (A) and P1 + P2 exactly 70 % (B). Amount: P1 and P3 tie at 25.5 and P1 wins on
-      product_id, so P1 crosses 50 % (B) and P3 is C. agg rows are split over two days to check the totals.
+      Quantity: P1 is exactly 50% (A) and P1 + P2 exactly 70% (B). Amount: P1 and P3 tie at 25.5 and P1 comes
+      first on product_id, so P1 crosses 50% (B) and P3 is C. P1's agg rows are split over two days and it
+      appears twice in stg_sales, to check the sum and the distinct product list. P1 has the largest key, so
+      a tie-break on product_key would fail.
     model: product_abc
     given:
       - input: ref('agg_sales_daily')
         rows:
-          - {sale_date: 2024-01-01, product_key: 1, quantity_total: 30, revenue_total: 20.5}
-          - {sale_date: 2024-01-02, product_key: 1, quantity_total: 20, revenue_total: 5}
+          - {sale_date: 2024-01-01, product_key: 9, quantity_total: 30, revenue_total: 20.5}
+          - {sale_date: 2024-01-02, product_key: 9, quantity_total: 20, revenue_total: 5}
           - {sale_date: 2024-01-01, product_key: 2, quantity_total: 20, revenue_total: 30}
           - {sale_date: 2024-01-01, product_key: 3, quantity_total: 15, revenue_total: 25.5}
           - {sale_date: 2024-01-01, product_key: 4, quantity_total: 15, revenue_total: 19}
       - input: ref('stg_sales')
         rows:
-          - {product_key: 1, product_id: P1}
-          - {product_key: 1, product_id: P1}
+          - {product_key: 9, product_id: P1}
+          - {product_key: 9, product_id: P1}
           - {product_key: 2, product_id: P2}
           - {product_key: 3, product_id: P3}
           - {product_key: 4, product_id: P4}
@@ -154,3 +172,47 @@ unit_tests:
         - {product_id: P2, total_quantity: 20, abc_quantity: B, abc_amount: A}
         - {product_id: P3, total_quantity: 15, abc_quantity: C, abc_amount: C}
         - {product_id: P4, total_quantity: 15, abc_quantity: C, abc_amount: C}
+
+  - name: product_abc_amount_exact_boundaries
+    description: >
+      Amounts with decimals where P1 is exactly 50% (A) and P1 + P2 exactly 70% (B) of 2.909. As Float64
+      percentages the 70% case is 70.00000000000001 and would wrongly be C; the exact comparison keeps B.
+    model: product_abc
+    given:
+      - input: ref('agg_sales_daily')
+        rows:
+          - {sale_date: 2024-01-01, product_key: 1, quantity_total: 1, revenue_total: 1.4545}
+          - {sale_date: 2024-01-01, product_key: 2, quantity_total: 1, revenue_total: 0.5818}
+          - {sale_date: 2024-01-01, product_key: 3, quantity_total: 1, revenue_total: 0.43635}
+          - {sale_date: 2024-01-01, product_key: 4, quantity_total: 1, revenue_total: 0.43635}
+      - input: ref('stg_sales')
+        rows:
+          - {product_key: 1, product_id: P1}
+          - {product_key: 2, product_id: P2}
+          - {product_key: 3, product_id: P3}
+          - {product_key: 4, product_id: P4}
+    expect:
+      rows:
+        - {product_id: P1, abc_amount: A}
+        - {product_id: P2, abc_amount: B}
+        - {product_id: P3, abc_amount: C}
+        - {product_id: P4, abc_amount: C}
+
+  - name: dim_product_takes_each_class_from_its_own_measure
+    description: >
+      Classes differ per measure, so swapped abc_quantity and abc_amount columns would fail. The real data
+      can't show this, because both classes are equal for every product.
+    model: dim_product
+    given:
+      - input: ref('stg_sales')
+        rows:
+          - {product_key: 1, product_id: P1}
+          - {product_key: 2, product_id: P2}
+      - input: ref('product_abc')
+        rows:
+          - {product_key: 1, abc_quantity: A, abc_amount: C}
+          - {product_key: 2, abc_quantity: C, abc_amount: B}
+    expect:
+      rows:
+        - {product_id: P1, abc_quantity: A, abc_amount: C}
+        - {product_id: P2, abc_quantity: C, abc_amount: B}

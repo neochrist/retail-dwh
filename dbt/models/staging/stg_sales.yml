@@ -2,10 +2,12 @@ version: 2
 
 models:
   - name: stg_sales
-    description: One row per raw sales row, typed. A table, not a view, so every cast runs in dbt_staging. Store = state code at the end of the address.
+    description: >
+      One row per raw sales row, typed. A table, not a view, so every cast runs when staging is built.
+      Store = the two-letter state code at the end of the address.
     columns:
       - name: transaction_id
-        description: cityHash64 of all source columns as text. Unique test also detects duplicate rows.
+        description: cityHash64 of a tuple of all raw (text) columns. The unique test also detects duplicate rows.
         data_tests:
           - unique
           - not_null
@@ -16,13 +18,13 @@ models:
         data_tests:
           - not_null
       - name: store_id
-        description: Two-letter code before the ZIP in store_location. Empty string if the pattern fails.
-        data_tests:
-          - not_null
+        description: >
+          Two-letter code before the ZIP in store_location. Empty string if the pattern fails, which
+          assert_stg_sales_store_id_parsed catches.
       - name: sold_at
-        description: Source timestamp read as Asia/Tbilisi local time.
+        description: Source timestamp as written in the file (no zone in the source), stored in Asia/Tbilisi, which has no daylight saving time, so no value shifts.
       - name: sale_date
-        description: Local calendar date of sold_at (Asia/Tbilisi).
+        description: Calendar date of sold_at, as written in the file.
       - name: gross_amount
         description: quantity * unit_price, before discount.
       - name: revenue
@@ -33,10 +35,13 @@ models:
         data_tests:
           - accepted_values:
               arguments:
-                values: ["Cash", "Credit Card", "Debit Card", "PayPal"]
+                values: [Cash, Credit Card, Debit Card, PayPal]
 
 unit_tests:
   - name: stg_sales_parses_store_date_and_amounts
+    description: >
+      Multi-line addresses give the state code, non-padded dates parse, and gross, discount and revenue
+      add up.
     model: stg_sales
     given:
       - input: source('raw', 'raw_sales')

@@ -1,5 +1,3 @@
-# pyright: reportMissingImports=false
-# (Airflow is installed only in the Docker image.)
 """DAG integrity test. Skipped locally; run inside the container:
 
 docker compose exec airflow-scheduler pytest tests/test_dags.py

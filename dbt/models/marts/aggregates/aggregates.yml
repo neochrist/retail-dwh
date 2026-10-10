@@ -27,3 +27,20 @@ models:
         description: Number of fact rows.
       - name: unique_customers
         description: Exact distinct customers. Not additive across days, stores or products.
+
+unit_tests:
+  - name: agg_sales_daily_counts_and_weighted_discount
+    description: >
+      Two sales by the same customer on one day x store x product: one unique customer, two transactions.
+      Discounts 10% on gross 100 and 0% on gross 300 give a weighted 2.5%, not the row average of 5%.
+    model: agg_sales_daily
+    given:
+      - input: ref('fact_sales')
+        rows:
+          - {sale_date: 2024-01-01, store_key: 1, product_key: 1, customer_id: C1, quantity: 1, gross_amount: 100, discount_amount: 10, revenue: 90}
+          - {sale_date: 2024-01-01, store_key: 1, product_key: 1, customer_id: C1, quantity: 3, gross_amount: 300, discount_amount: 0, revenue: 300}
+          - {sale_date: 2024-01-01, store_key: 1, product_key: 2, customer_id: C2, quantity: 2, gross_amount: 50, discount_amount: 0, revenue: 50}
+    expect:
+      rows:
+        - {product_key: 1, quantity_total: 4, revenue_total: 390, transaction_count: 2, unique_customers: 1, weighted_discount_pct: 2.5}
+        - {product_key: 2, quantity_total: 2, revenue_total: 50, transaction_count: 1, unique_customers: 1, weighted_discount_pct: 0}

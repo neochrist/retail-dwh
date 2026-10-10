@@ -24,7 +24,7 @@ named_totals as (
         t.total_revenue
     from product_totals as t
     inner join products as p
-        on t.product_key = p.product_key
+        on p.product_key = t.product_key
 ),
 
 running_totals as (

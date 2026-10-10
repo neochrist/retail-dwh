@@ -3,7 +3,15 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from ingestion.raw_sales import COLUMNS, read_sales_csv, to_raw, validate
+from ingestion import raw_sales
+from ingestion.raw_sales import (
+    COLUMNS,
+    CREATE_TABLE,
+    load_from_csv,
+    read_sales_csv,
+    to_raw,
+    validate,
+)
 
 HEADER = ",".join(COLUMNS)
 
@@ -62,4 +70,65 @@ def test_to_raw_renames_columns_and_adds_loaded_at(tmp_path: Path) -> None:
 
     assert list(raw.columns) == [*COLUMNS.values(), "loaded_at"]
     assert raw["loaded_at"].count() == len(raw)  # count() skips missing values
-    assert isinstance(raw, pd.DataFrame)
+
+
+def test_column_map_matches_raw_table() -> None:
+    table_columns = [
+        line.split()[0] for line in CREATE_TABLE.splitlines() if line.startswith("    ")
+    ]
+
+    assert table_columns == [*COLUMNS.values(), "loaded_at"]
+
+
+class FakeClient:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+        self.inserted = 0
+        self.rows_lost = 0
+
+    def command(self, sql: str) -> int | None:
+        statement = " ".join(sql.split()[:3])
+        self.calls.append(statement)
+        return self.inserted - self.rows_lost if statement == "select count() from" else None
+
+    def insert_df(self, table: str, df: pd.DataFrame) -> None:
+        self.calls.append(f"insert {table}")
+        self.inserted = len(df)
+
+
+def test_load_truncates_only_after_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = FakeClient()
+    monkeypatch.setattr(raw_sales, "get_client", lambda: client)
+
+    load_from_csv(write_csv(tmp_path, TWO_ROWS))
+
+    assert client.calls == [
+        "create database if",
+        "create table if",
+        "truncate table raw.raw_sales",
+        "insert raw.raw_sales",
+        "select count() from",
+    ]
+
+
+def test_bad_file_never_touches_the_table(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    client = FakeClient()
+    monkeypatch.setattr(raw_sales, "get_client", lambda: client)
+
+    with pytest.raises(ValueError, match="no rows"):
+        load_from_csv(write_csv(tmp_path, HEADER + "\n"))
+
+    assert client.calls == []
+
+
+def test_load_fails_when_table_count_differs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = FakeClient()
+    client.rows_lost = 1
+    monkeypatch.setattr(raw_sales, "get_client", lambda: client)
+
+    with pytest.raises(RuntimeError, match="Inserted 2 rows"):
+        load_from_csv(write_csv(tmp_path, TWO_ROWS))

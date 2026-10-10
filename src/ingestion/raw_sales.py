@@ -1,6 +1,6 @@
 """Download the Kaggle retail dataset and full-refresh load it into raw.raw_sales.
 
-Python only to move data: every source column is loaded as text as in the file.
+Python only moves data: every source column is loaded as text as in the file.
 Typing and business logic happen in dbt.
 """
 
@@ -32,8 +32,6 @@ COLUMNS = {
     "TotalAmount": "total_amount",
 }
 
-# dbt suggests writing sql in lowercase:
-# docs: https://docs.getdbt.com/best-practices/how-we-style/2-how-we-style-our-sql
 CREATE_DATABASE = "create database if not exists raw"
 
 CREATE_TABLE = """
@@ -79,7 +77,6 @@ def download_dataset(data_dir: Path) -> Path:
 
 def read_sales_csv(csv_path: Path) -> pd.DataFrame:
     """Read the CSV with every value kept as text."""
-
     df = pd.read_csv(csv_path, dtype=str, keep_default_na=False)
     logger.info("Read %d rows from %s", len(df), csv_path)
     return df

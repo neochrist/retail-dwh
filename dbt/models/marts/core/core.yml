@@ -22,7 +22,7 @@ models:
     description: One row per transaction. Keys come from staging, so the fact never reads the dimensions.
     columns:
       - name: transaction_id
-        description: cityHash64 of all source columns as text.
+        description: cityHash64 of a tuple of all raw (text) columns.
         data_tests:
           - unique
           - not_null
@@ -41,12 +41,12 @@ models:
                 to: ref('dim_product')
                 field: product_key
       - name: sale_date
-        description: Local calendar date of the sale (Asia/Tbilisi).
+        description: Calendar date of the sale, as written in the file.
       - name: gross_amount
         description: quantity * unit_price, before discount.
       - name: discount_amount
         description: gross_amount - revenue.
       - name: revenue
-        description: Source TotalAmount, as given.
+        description: Source total_amount, not recomputed.
       - name: discount_pct
         description: Discount in percent (0-100).

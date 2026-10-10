@@ -11,7 +11,7 @@ with bounds as (
 
 months as (
     select
-        number + 1 as month
+        toUInt8(number + 1) as month
     from numbers(12) as n
     cross join bounds
     where month <= last_month
@@ -33,7 +33,10 @@ worked_days as (
         toMonth(sale_date) as sale_month,
         uniqExact(sale_date) as days_worked
     from {{ ref('agg_sales_daily') }}
-    group by store_key, sale_year, sale_month
+    group by
+        store_key,
+        sale_year,
+        sale_month
 ),
 
 required_days as (
@@ -61,6 +64,8 @@ select
     ) as lfl_status
 from grid as g
 cross join bounds as b
+inner join required_days as r
+    on r.month = g.month
 left join worked_days as cy
     on cy.store_key = g.store_key
     and cy.sale_month = g.month
@@ -69,5 +74,3 @@ left join worked_days as py
     on py.store_key = g.store_key
     and py.sale_month = g.month
     and py.sale_year = b.current_year - 1
-inner join required_days as r
-    on r.month = g.month

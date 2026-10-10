@@ -1,5 +1,3 @@
-# pyright: reportMissingImports=false
-# (Airflow is installed only in the Docker image.)
 """Daily retail pipeline: download the Kaggle CSV, load it into ClickHouse, build the dbt models."""
 
 import os
