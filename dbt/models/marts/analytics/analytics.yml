@@ -17,3 +17,68 @@ models:
         data_tests:
           - unique
           - not_null
+
+  - name: dim_store_lfl
+    description: >
+      One row per year x month x store for the current year (latest year in the data), months 1 to the last month
+      in the data. lfl_status = 1 if the store sold on every required day in both years: the full month last year,
+      and this year the full month or, for the last month, the days up to and including the max date.
+    columns:
+      - name: year
+        data_tests:
+          - not_null
+      - name: month
+        data_tests:
+          - not_null
+      - name: store_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_store')
+                field: store_id
+      - name: lfl_status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+
+unit_tests:
+  - name: dim_store_lfl_full_months_missing_days_and_leap_year
+    description: >
+      Data from 2023-01-01 to 2024-03-15, so the current year is 2024 and March needs 15 days this year.
+      S1 sells every day, S2 misses 2024-02-10, S3 misses 2023-03-31, S4 has no sales.
+    model: dim_store_lfl
+    given:
+      - input: ref('agg_sales_daily')
+        format: sql
+        rows: |
+          select
+              toDate('2023-01-01') + number as sale_date,
+              toUInt64(s.store_key) as store_key
+          from numbers(440) as n
+          cross join (select arrayJoin([1, 2, 3]) as store_key) as s
+          where not (s.store_key = 2 and sale_date = toDate('2024-02-10'))
+              and not (s.store_key = 3 and sale_date = toDate('2023-03-31'))
+      - input: ref('dim_store')
+        rows:
+          - {store_key: 1, store_id: S1, store_name: Store S1}
+          - {store_key: 2, store_id: S2, store_name: Store S2}
+          - {store_key: 3, store_id: S3, store_name: Store S3}
+          - {store_key: 4, store_id: S4, store_name: Store S4}
+    expect:
+      rows:
+        - {year: 2024, month: 1, store_id: S1, lfl_status: 1}
+        - {year: 2024, month: 2, store_id: S1, lfl_status: 1}
+        - {year: 2024, month: 3, store_id: S1, lfl_status: 1}
+        - {year: 2024, month: 1, store_id: S2, lfl_status: 1}
+        - {year: 2024, month: 2, store_id: S2, lfl_status: 0}
+        - {year: 2024, month: 3, store_id: S2, lfl_status: 1}
+        - {year: 2024, month: 1, store_id: S3, lfl_status: 1}
+        - {year: 2024, month: 2, store_id: S3, lfl_status: 1}
+        - {year: 2024, month: 3, store_id: S3, lfl_status: 0}
+        - {year: 2024, month: 1, store_id: S4, lfl_status: 0}
+        - {year: 2024, month: 2, store_id: S4, lfl_status: 0}
+        - {year: 2024, month: 3, store_id: S4, lfl_status: 0}
