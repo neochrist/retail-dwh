@@ -17,6 +17,51 @@ models:
         data_tests:
           - unique
           - not_null
+      - name: abc_quantity
+        description: ABC class by quantity, from product_abc.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [A, B, C]
+      - name: abc_amount
+        description: ABC class by amount (revenue), from product_abc.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [A, B, C]
+
+  - name: product_abc
+    description: >
+      One row per product. ABC analysis from agg_sales_daily, separately by quantity and by amount (revenue).
+      Products are sorted by total descending, ties by product_id. Cumulative share <= 50 % is A, <= 70 % is B,
+      the rest is C. Classes use an exact comparison on the totals; the percentage columns are for reading only.
+    columns:
+      - name: product_key
+        data_tests:
+          - unique
+          - not_null
+      - name: product_id
+        data_tests:
+          - unique
+          - not_null
+      - name: quantity_cumulative_pct
+        description: Running sum of quantity_share_pct in ranking order.
+      - name: abc_quantity
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [A, B, C]
+      - name: revenue_cumulative_pct
+        description: Running sum of revenue_share_pct in ranking order.
+      - name: abc_amount
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [A, B, C]
 
   - name: dim_store_lfl
     description: >
@@ -82,3 +127,30 @@ unit_tests:
         - {year: 2024, month: 1, store_id: S4, lfl_status: 0}
         - {year: 2024, month: 2, store_id: S4, lfl_status: 0}
         - {year: 2024, month: 3, store_id: S4, lfl_status: 0}
+
+  - name: product_abc_boundaries_and_ties
+    description: >
+      Quantity: P1 is exactly 50 % (A) and P1 + P2 exactly 70 % (B). Amount: P1 and P3 tie at 25.5 and P1 wins on
+      product_id, so P1 crosses 50 % (B) and P3 is C. agg rows are split over two days to check the totals.
+    model: product_abc
+    given:
+      - input: ref('agg_sales_daily')
+        rows:
+          - {sale_date: 2024-01-01, product_key: 1, quantity_total: 30, revenue_total: 20.5}
+          - {sale_date: 2024-01-02, product_key: 1, quantity_total: 20, revenue_total: 5}
+          - {sale_date: 2024-01-01, product_key: 2, quantity_total: 20, revenue_total: 30}
+          - {sale_date: 2024-01-01, product_key: 3, quantity_total: 15, revenue_total: 25.5}
+          - {sale_date: 2024-01-01, product_key: 4, quantity_total: 15, revenue_total: 19}
+      - input: ref('stg_sales')
+        rows:
+          - {product_key: 1, product_id: P1}
+          - {product_key: 1, product_id: P1}
+          - {product_key: 2, product_id: P2}
+          - {product_key: 3, product_id: P3}
+          - {product_key: 4, product_id: P4}
+    expect:
+      rows:
+        - {product_id: P1, total_quantity: 50, abc_quantity: A, abc_amount: B}
+        - {product_id: P2, total_quantity: 20, abc_quantity: B, abc_amount: A}
+        - {product_id: P3, total_quantity: 15, abc_quantity: C, abc_amount: C}
+        - {product_id: P4, total_quantity: 15, abc_quantity: C, abc_amount: C}
