@@ -19,6 +19,12 @@ the pipeline every day at midnight, and the whole stack starts with one `docker 
 | Orchestration with Airflow, daily at midnight | DAG `retail_daily` |
 | Everything runs with Docker Compose | `docker-compose.yml` |
 
+> **Read this first.** The dataset has no store column, so a store is the 2-letter postal code at the end of each
+> address (62 stores). With this data every LFL status is 0: the data starts on 2023-04-29, so the previous year
+> has no sales in January–March and only two days in April. The logic is proven by unit tests. The four products
+> sell almost equally, so the ABC classes are decided by small differences. Details in
+> [Business rules](#business-rules-and-assumptions).
+
 ## Architecture
 
 Airflow runs the pipeline once a day. Python tasks download the CSV from Kaggle and load it, as text,
@@ -562,8 +568,6 @@ uv run pytest                                          # locally: 10 pass, test_
 - **Airflow 2.10 is past its end of support.**
 - **The raw table is briefly empty** between truncate and insert. Nothing else reads it at that time.
 - **One ClickHouse node, no backups, no CI.**
-- **Airflow isn't installed locally**, so the editor can't resolve Airflow imports, and the DAG test runs only in
-  the container.
 
 ## Production
 
